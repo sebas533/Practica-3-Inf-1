@@ -1,8 +1,8 @@
 # Práctica #3 — Infraestructura #1: Segmentación con FortiGate (VLANs, DMZ y políticas de seguridad)
 
 **Asignatura:** Seguridad de Redes
-**Estudiante:** [Nombre y apellido]
-**Matrícula:** [AAAA-2168]
+**Estudiante:** [Luis Sebastian Roble Perez]
+**Matrícula:** [2025-2168]
 
 ---
 
