@@ -61,7 +61,6 @@ Se usan los bloques `21.68.x.x` para el enlace público y `10.21.68.x` para las 
 | VLAN 20 (users)   | `10.21.68.64/26`  | FortiGate `10.21.68.65`         | `.66 – .126` (DHCP)     |
 | DMZ (servidores)  | `10.21.68.128/28` | FortiGate `10.21.68.129`        | Servidor `10.21.68.130` |
 
-> ⚠️ Si tus `configs/` usan otros valores, reemplaza esta tabla con los reales.
 
 ---
 
@@ -106,7 +105,6 @@ Se activó port-security en 3 interfaces para limitar las MAC permitidas y reacc
 | Salida a Internet               | Usuarios → WAN          | ALL      | ACCEPT (NAT) |
 | Servidor actualizaciones        | DMZ → WAN               | HTTP/HTTPS/DNS | ACCEPT |
 
-> ⚠️ Ajustar a las políticas reales de `FortiGate.conf`. El orden importa: los DENY van por encima de los ACCEPT generales.
 
 ![Política y violación de salida a Internet](img/politica%20y%20violacion%20de%20salida%20a%20internet.png)
 
