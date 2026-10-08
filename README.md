@@ -24,7 +24,6 @@ Lo que se quiere demostrar:
 
 ## 2. Topología
 
-> Ajustar nombres de interfaces y equipos a los de tu `Topologia.png`.
 
 ```mermaid
 flowchart LR
