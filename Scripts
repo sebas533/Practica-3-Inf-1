@@ -1,0 +1,89 @@
+ISP, SW-USER y SW-SERVER 
+! ISP
+show ip interface brief
+show ip route
+show ip nat statistics
+ping 21.68.1.2
+ping 8.8.8.8
+! ESPERADO: Fa1/0 21.68.1.1 up/up | ping a 21.68.1.2 y 8.8.8.8 con !!!!!
+
+! SW-USER
+show vlan brief
+show interfaces trunk
+show port-security
+show port-security interface gi0/1
+show port-security interface gi0/2
+! ESPERADO: VLAN 10 (Gi0/1) y VLAN 20 (Gi0/2) | Gi0/0 trunk 10,20 | Port Security Enabled, Secure-up
+
+! SW-SERVER
+show interfaces status
+show port-security
+show port-security interface gi0/1
+! ESPERADO: Gi0/0 y Gi0/1 connected | port-security Enabled en Gi0/1
+FortiGate (consola CLI, solo lectura)
+get system interface physical
+get router info routing-table all
+show firewall policy
+execute dhcp lease-list
+execute ping 21.68.1.1
+execute ping 10.21.68.130
+diagnose firewall iprope list 100004 | grep -c policy
+
+Servidor DMZ
+bash
+cat > t.sh <<'EOF'
+P=0; F=0
+ok(){ echo -e "  \e[32m[PASS]\e[0m $1"; P=$((P+1)); }
+ko(){ echo -e "  \e[31m[FAIL]\e[0m $1"; F=$((F+1)); }
+yes_(){ if eval "$2" >/dev/null 2>&1; then ok "$1"; else ko "$1"; fi; }
+no_(){  if eval "$2" >/dev/null 2>&1; then ko "$1"; else ok "$1"; fi; }
+
+yes_ "IP 10.21.68.130/28"            "ip -4 addr | grep -q 10.21.68.130/28"
+yes_ "Gateway 10.21.68.129"          "ip route | grep -q 'default via 10.21.68.129'"
+yes_ "Ping al gateway"               "ping -c2 -W2 10.21.68.129"
+yes_ "Apache activo"                 "systemctl is-active --quiet apache2"
+yes_ "SSH activo"                    "systemctl is-active --quiet ssh"
+yes_ "Escucha 80 y 22"               "ss -tln | grep -q ':80 ' && ss -tln | grep -q ':22 '"
+no_  "Ping a Google BLOQUEADO"       "ping -c2 -W3 8.8.8.8"
+read -p "IP de un PC de usuario (ej. 10.21.68.2): " U
+no_  "Ping a usuario BLOQUEADO"      "ping -c2 -W3 $U"
+yes_ "apt update funciona"           "sudo apt-get update -o Acquire::http::Timeout=10"
+echo; echo "RESULTADO: $P PASS / $F FAIL"
+EOF
+bash t.sh
+PC de VLAN 10 (todo debe estar bloqueado hacia el servidor)
+bash
+cat > t10.sh <<'EOF'
+P=0; F=0
+ok(){ echo -e "  \e[32m[PASS]\e[0m $1"; P=$((P+1)); }
+ko(){ echo -e "  \e[31m[FAIL]\e[0m $1"; F=$((F+1)); }
+IF=$(ls /sys/class/net | grep -v lo | head -n1)
+sudo dhclient -r $IF 2>/dev/null; sudo dhclient $IF; sleep 2
+IP=$(ip -4 addr show $IF | awk '/inet /{print $2}')
+echo "IP: $IP"
+echo "$IP" | grep -q '^10.21.68.\([2-9]\|[1-5][0-9]\|6[0-2]\)/26' && ok "IP en 10.21.68.0/26" || ko "IP fuera de VLAN 10"
+ping -c2 -W2 10.21.68.1 >/dev/null 2>&1 && ok "Ping gateway 10.21.68.1" || ko "Ping gateway"
+curl -s -m5 http://10.21.68.130 >/dev/null && ko "HTTP al servidor (debe estar BLOQUEADO)" || ok "HTTP al servidor bloqueado"
+timeout 6 bash -c 'exec 3<>/dev/tcp/10.21.68.130/22' 2>/dev/null && ko "SSH al servidor (debe estar BLOQUEADO)" || ok "SSH al servidor bloqueado"
+ping -c2 -W3 8.8.8.8 >/dev/null 2>&1 && ok "Salida a Internet" || ko "Salida a Internet"
+echo; echo "RESULTADO: $P PASS / $F FAIL"
+EOF
+bash t10.sh
+PC de VLAN 20 (SSH permitido, HTTP no)
+bash
+cat > t20.sh <<'EOF'
+P=0; F=0
+ok(){ echo -e "  \e[32m[PASS]\e[0m $1"; P=$((P+1)); }
+ko(){ echo -e "  \e[31m[FAIL]\e[0m $1"; F=$((F+1)); }
+IF=$(ls /sys/class/net | grep -v lo | head -n1)
+sudo dhclient -r $IF 2>/dev/null; sudo dhclient $IF; sleep 2
+IP=$(ip -4 addr show $IF | awk '/inet /{print $2}')
+echo "IP: $IP"
+echo "$IP" | grep -q '^10.21.68.\(6[6-9]\|[7-9][0-9]\|1[01][0-9]\|12[0-6]\)/26' && ok "IP en 10.21.68.64/26" || ko "IP fuera de VLAN 20"
+ping -c2 -W2 10.21.68.65 >/dev/null 2>&1 && ok "Ping gateway 10.21.68.65" || ko "Ping gateway"
+timeout 6 bash -c 'exec 3<>/dev/tcp/10.21.68.130/22' 2>/dev/null && ok "SSH al servidor PERMITIDO" || ko "SSH al servidor"
+curl -s -m5 http://10.21.68.130 >/dev/null && ko "HTTP al servidor (no hay regla que lo permita)" || ok "HTTP al servidor bloqueado"
+ping -c2 -W3 8.8.8.8 >/dev/null 2>&1 && ok "Salida a Internet" || ko "Salida a Internet"
+echo; echo "RESULTADO: $P PASS / $F FAIL"
+EOF
+bash t20.sh
